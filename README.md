@@ -23,13 +23,8 @@ Tech Stack :
 
 Project Structure :
 
-bg-remover-tool/
-│
-├── static/              # CSS, JS, and assets
-├── templates/           # HTML templates
-├── app.py               # Flask backend
-├── requirements.txt     # Python dependencies
-└── README.md            # Project documentation
+<img width="510" height="224" alt="image" src="https://github.com/user-attachments/assets/85cbbd6e-8199-4bfb-8aca-316da1b0618a" />
+
 
 Installation & Setup :
 
