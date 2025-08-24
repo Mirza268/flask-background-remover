@@ -33,9 +33,8 @@ Installation & Setup :
   cd bg-remover-tool
 
 - Create & activate virtual environment.
-python -m venv venv
-source venv/bin/activate   # For Linux/Mac
-venv\Scripts\activate      # For Windows
+<img width="494" height="90" alt="image" src="https://github.com/user-attachments/assets/809598e0-0cd1-469d-b8a1-78b3a9745111" />
+
 
 - Install dependencies
 - pip install -r requirements.txt
