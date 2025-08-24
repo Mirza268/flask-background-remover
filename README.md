@@ -29,7 +29,7 @@ Project Structure :
 Installation & Setup :
 
 - Clone the repository
-- git clone https://github.com/yourusername/bg-remover-tool.git
+- git clone https://github.com/Mirza268/flask-background-remover.git
   cd bg-remover-tool
 
 - Create & activate virtual environment.
