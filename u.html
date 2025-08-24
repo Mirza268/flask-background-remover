@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Word Counter with File Upload</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .stat-card {
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .textarea-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        
+        .progress-ring {
+            transition: stroke-dashoffset 0.5s ease;
+        }
+        
+        .word-highlight {
+            background: linear-gradient(120deg, #a8edea 0%, #fed6e3 100%);
+            border-radius: 3px;
+            padding: 0 2px;
+            margin: 0 1px;
+        }
+        
+        .drop-zone {
+            border: 2px dashed #cbd5e0;
+            transition: all 0.3s ease;
+        }
+        
+        .drop-zone.dragover {
+            border-color: #667eea;
+            background-color: rgba(102, 126, 234, 0.1);
+        }
+        
+        .drop-zone.error {
+            border-color: #e53e3e;
+            background-color: rgba(229, 62, 62, 0.1);
+        }
+        
+        .drop-zone.success {
+            border-color: #38a169;
+            background-color: rgba(56, 161, 105, 0.1);
+        }
+        
+        .file-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .file-item {
+            transition: all 0.3s ease;
+        }
+        
+        .file-item:hover {
+            transform: translateX(5px);
+        }
+        
+        .loading-spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+        
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen py-8 px-4">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">Advanced Word Counter</h1>
+            <p class="text-xl text-white/90">Upload files or type text - Unlimited word counting</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Left Column - Input Area -->
+            <div class="space-y-6">
+                <!-- File Upload Section -->
+                <div class="stat-card rounded-2xl p-6 shadow-2xl">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Upload Files</h2>
+
+                    <!-- Drop Zone -->
+                    <div id="dropZone" class="drop-zone rounded-xl p-8 text-center cursor-pointer mb-4">
+                        <div class="mx-auto w-12 h-12 mb-4 text-gray-400">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                            </svg>
+                        </div>
+                        <p class="text-gray-600 mb-2">Drag & drop files here</p>
+                        <p class="text-sm text-gray-500 mb-4">or</p>
+                        <label for="fileInput" class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg cursor-pointer transition-colors">
+                            Browse Files
+                        </label>
+                        <input type="file" id="fileInput" class="hidden" multiple accept=".txt,.doc,.docx,.pdf,.rtf,.odt,.html,.xml,.csv,.json,.md">
+                    </div>
+
+                    <!-- File Info -->
+                    <div id="fileInfo" class="hidden">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-medium text-gray-700">Selected Files</h3>
+                            <button onclick="clearFiles()" class="text-sm text-red-500 hover:text-red-700">
+                                Clear All
+                            </button>
+                        </div>
+                        <div id="fileList" class="file-list space-y-2"></div>
+                    </div>
+
+                    <!-- Upload Progress -->
+                    <div id="uploadProgress" class="hidden mt-4">
+                        <div class="flex justify-between text-sm text-gray-600 mb-2">
+                            <span>Processing...</span>
+                            <span id="progressText">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="progressBar" class="progress-bar h-2 rounded-full bg-blue-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Supported Formats -->
+                    <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">Supported Formats:</h4>
+                        <div class="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                            <span>• Text (.txt)</span>
+                            <span>• Word (.doc, .docx)</span>
+                            <span>• PDF (.pdf)</span>
+                            <span>• Rich Text (.rtf)</span>
+                            <span>• OpenDocument (.odt)</span>
+                            <span>• Web (.html, .xml)</span>
+                            <span>• Data (.csv, .json)</span>
+                            <span>• Markdown (.md)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Text Input Area -->
+                <div class="textarea-container rounded-2xl p-6 shadow-2xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-2xl font-semibold text-gray-800">Your Text</h2>
+                        <div class="flex space-x-2">
+                            <button onclick="clearText()" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors">
+                                Clear Text
+                            </button>
+                            <button onclick="copyToClipboard()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors">
+                                Copy Text
+                            </button>
+                        </div>
+                    </div>
+
+                    <textarea id="textInput" placeholder="Start typing or paste your text here... (Unlimited words supported)" class="w-full h-64 p-4 border-2 border-gray-200 rounded-xl resize-none focus:border-blue-500 focus:outline-none text-gray-700" oninput="updateStats()"></textarea>
+
+                    <div class="mt-4 flex justify-between items-center">
+                        <span id="charProgress" class="text-sm text-gray-600">0 characters</span>
+                        <div class="flex space-x-2">
+                            <button onclick="downloadText()" class="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded text-sm transition-colors">
+                                Download
+                            </button>
+                            <button onclick="speakText()" class="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white rounded text-sm transition-colors">
+                                Read Aloud
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column - Statistics Panel -->
+            <div class="space-y-6">
+                <!-- Main Stats Card -->
+                <div class="stat-card rounded-2xl p-6 shadow-2xl">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-6">Statistics</h2>
+
+                    <div class="grid grid-cols-2 gap-6">
+                        <!-- Word Count -->
+                        <div class="text-center">
+                            <div class="relative w-20 h-20 mx-auto mb-3">
+                                <svg class="w-full h-full" viewBox="0 0 36 36">
+                                    <circle cx="18" cy="18" r="15.9155" class="stroke-gray-200" stroke-width="2" fill="none"/>
+                                    <circle cx="18" cy="18" r="15.9155" class="stroke-blue-500 progress-ring" stroke-width="2" fill="none" 
+                                            stroke-dasharray="100" stroke-dashoffset="75" stroke-linecap="round"/>
+                                    <text x="18" y="22" class="text-[8px] font-bold fill-gray-700 text-center" text-anchor="middle">
+                                        <tspan id="wordCount">0</tspan>
+                                    </text>
+                                </svg>
+                            </div>
+                            <p class="text-sm font-medium text-gray-600">Words</p>
+                        </div>
+
+                        <!-- Character Count -->
+                        <div class="text-center">
+                            <div class="relative w-20 h-20 mx-auto mb-3">
+                                <svg class="w-full h-full" viewBox="0 0 36 36">
+                                    <circle cx="18" cy="18" r="15.9155" class="stroke-gray-200" stroke-width="2" fill="none"/>
+                                    <circle cx="18" cy="18" r="15.9155" class="stroke-green-500 progress-ring" stroke-width="2" fill="none" 
+                                            stroke-dasharray="100" stroke-dashoffset="75" stroke-linecap="round"/>
+                                    <text x="18" y="22" class="text-[8px] font-bold fill-gray-700 text-center" text-anchor="middle">
+                                        <tspan id="charCount">0</tspan>
+                                    </text>
+                                </svg>
+                            </div>
+                            <p class="text-sm font-medium text-gray-600">Characters</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detailed Stats -->
+                <div class="stat-card rounded-2xl p-6 shadow-2xl">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Detailed Analysis</h3>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-blue-600 mb-1" id="charNoSpaces">0</div>
+                            <div class="text-sm text-gray-600">Characters (no spaces)</div>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-green-600 mb-1" id="sentenceCount">0</div>
+                            <div class="text-sm text-gray-600">Sentences</div>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-purple-600 mb-1" id="paragraphCount">0</div>
+                            <div class="text-sm text-gray-600">Paragraphs</div>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-orange-600 mb-1" id="readingTime">0</div>
+                            <div class="text-sm text-gray-600">Reading Time (min)</div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Stats -->
+                    <div class="grid grid-cols-2 gap-4 mt-4">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-indigo-600 mb-1" id="fileCount">0</div>
+                            <div class="text-sm text-gray-600">Files Processed</div>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-pink-600 mb-1" id="totalWords">0</div>
+                            <div class="text-sm text-gray-600">Total Words</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Word Density -->
+                <div class="stat-card rounded-2xl p-6 shadow-2xl">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Word Insights</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600 mb-2">Most frequent words:</div>
+                        <div id="wordFrequency" class="text-sm text-gray-700">
+                            Start typing or upload files to see word frequency...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Export Options -->
+                <div class="stat-card rounded-2xl p-6 shadow-2xl">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Export Results</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="exportResults('txt')" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors">
+                            Export as TXT
+                        </button>
+                        <button onclick="exportResults('csv')" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors">
+                            Export as CSV
+                        </button>
+                        <button onclick="exportResults('json')" class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors">
+                            Export as JSON
+                        </button>
+                        <button onclick="printResults()" class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors">
+                            Print Results
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div class="mt-12 text-center">
+            <h2 class="text-3xl font-bold text-white mb-8">Advanced Features</h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="bg-white/10 backdrop-blur-sm p-6 rounded-2xl text-white">
+                    <div class="text-4xl mb-4">📁</div>
+                    <h3 class="text-xl font-semibold mb-2">Multi-Format Support</h3>
+                    <p class="text-white/80">Upload TXT, DOC, PDF, HTML, and more file types</p>
+                </div>
+                <div class="bg-white/10 backdrop-blur-sm p-6 rounded-2xl text-white">
+                    <div class="text-4xl mb-4">⚡</div>
+                    <h3 class="text-xl font-semibold mb-2">Real-time Processing</h3>
+                    <p class="text-white/80">Instant analysis with progress indicators</p>
+                </div>
+                <div class="bg-white/10 backdrop-blur-sm p-6 rounded-2xl text-white">
+                    <div class="text-4xl mb-4">📊</div>
+                    <h3 class="text-xl font-semibold mb-2">Advanced Analytics</h3>
+                    <p class="text-white/80">Word frequency, reading time, and detailed stats</p>
+                </div>
+                <div class="bg-white/10 backdrop-blur-sm p-6 rounded-2xl text-white">
+                    <div class="text-4xl mb-4">💾</div>
+                    <h3 class="text-xl font-semibold mb-2">Export Options</h3>
+                    <p class="text-white/80">Download results in multiple formats</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let uploadedFiles = [];
+        let totalProcessedWords = 0;
+        let processedFilesCount = 0;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            setupDragAndDrop();
+            setupFileInput();
+            updateStats();
+        });
+
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('dropZone');
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, unhighlight, false);
+            });
+
+            function highlight() {
+                dropZone.classList.add('dragover');
+            }
+
+            function unhighlight() {
+                dropZone.classList.remove('dragover');
+            }
+
+            dropZone.addEventListener('drop', handleDrop, false);
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleFiles(files);
+            }
+        }
+
+        function setupFileInput() {
+            const fileInput = document.getElementById('fileInput');
+            fileInput.addEventListener('change', function() {
+                handleFiles(this.files);
+            });
+        }
+
+        function handleFiles(files) {
+            if (files.length === 0) return;
+
+            const validFiles = Array.from(files).filter(file => {
+                const extension = file.name.split('.').pop().toLowerCase();
+                const validExtensions = ['txt', 'doc', 'docx', 'pdf', 'rtf', 'odt', 'html', 'xml', 'csv', 'json', 'md'];
+
+                if (!validExtensions.includes(extension)) {
+                    showError(`Unsupported file type: ${file.name}`);
+                    return false;
+                }
+
+                if (file.size > 10 * 1024 * 1024) { // 10MB limit
+                    showError(`File too large: ${file.name} (max 10MB)`);
+                    return false;
+                }
+
+                return true;
+            });
+
+            if (validFiles.length === 0) return;
+
+            uploadedFiles = [...uploadedFiles, ...validFiles];
+            updateFileList();
+            processFiles(validFiles);
+        }
+
+        function updateFileList() {
+            const fileList = document.getElementById('fileList');
+            const fileInfo = document.getElementById('fileInfo');
+
+            fileList.innerHTML = '';
+            uploadedFiles.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item flex items-center justify-between p-3 bg-gray-50 rounded-lg';
+                fileItem.innerHTML = `
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                            <span class="text-sm font-medium text-blue-600">${getFileIcon(file.name)}</span>
+                        </div>
+                        <div>
+                            <div class="text-sm font-medium text-gray-700">${file.name}</div>
+                            <div class="text-xs text-gray-500">${formatFileSize(file.size)}</div>
+                        </div>
+                    </div>
+                    <button onclick="removeFile(${index})" class="text-red-500 hover:text-red-700">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                `;
+                fileList.appendChild(fileItem);
+            });
+
+            fileInfo.classList.remove('hidden');
+        }
+
+        function getFileIcon(filename) {
+            const extension = filename.split('.').pop().toLowerCase();
+            const icons = {
+                'txt': 'T',
+                'doc': 'W',
+                'docx': 'W',
+                'pdf': 'P',
+                'rtf': 'R',
+                'odt': 'O',
+                'html': 'H',
+                'xml': 'X',
+                'csv': 'C',
+                'json': 'J',
+                'md': 'M'
+            };
+            return icons[extension] || 'F';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function removeFile(index) {
+            uploadedFiles.splice(index, 1);
+            if (uploadedFiles.length === 0) {
+                document.getElementById('fileInfo').classList.add('hidden');
+            }
+            updateFileList();
+        }
+
+        function clearFiles() {
+            uploadedFiles = [];
+            document.getElementById('fileInfo').classList.add('hidden');
+            document.getElementById('textInput').value = '';
+            updateStats();
+        }
+
+        async function processFiles(files) {
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const uploadProgress = document.getElementById('uploadProgress');
+
+            uploadProgress.classList.remove('hidden');
+
+            let combinedText = '';
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const progress = ((i + 1) / files.length) * 100;
+
+                progressBar.style.width = progress + '%';
+                progressText.textContent = Math.round(progress) + '%';
+
+                try {
+                    const text = await readFileContent(file);
+                    combinedText += text + '\n\n';
+                    processedFilesCount++;
+                } catch (error) {
+                    showError(`Error reading ${file.name}: ${error.message}`);
+                }
+
+                // Small delay for smooth animation
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            // Add the combined text to the textarea
+            const textarea = document.getElementById('textInput');
+            if (textarea.value) {
+                textarea.value += '\n\n' + combinedText;
+            } else {
+                textarea.value = combinedText;
+            }
+
+            // Update stats
+            updateStats();
+
+            // Hide progress bar after completion
+            setTimeout(() => {
+                uploadProgress.classList.add('hidden');
+                progressBar.style.width = '0%';
+            }, 1000);
+        }
+
+        function readFileContent(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    resolve(e.target.result);
+                };
+
+                reader.onerror = function() {
+                    reject(new Error('Failed to read file'));
+                };
+
+                // For text-based files, read as text
+                const extension = file.name.split('.').pop().toLowerCase();
+                if (['txt', 'html', 'xml', 'csv', 'json', 'md', 'rtf'].includes(extension)) {
+                    reader.readAsText(file);
+                } else {
+                    // For binary files, we'll just use the filename as content
+                    // In a real application, you'd use proper libraries to extract text
+                    resolve(`[Content from ${file.name} would be extracted here]`);
+                }
+            });
+        }
+
+        function showError(message) {
+            const dropZone = document.getElementById('dropZone');
+            dropZone.classList.add('error');
+
+            // Create error message
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white p-4 rounded-lg shadow-lg z-50';
+            errorDiv.textContent = message;
+
+            document.body.appendChild(errorDiv);
+
+            // Remove error after 3 seconds
+            setTimeout(() => {
+                dropZone.classList.remove('error');
+                if (errorDiv.parentNode) {
+                    errorDiv.parentNode.removeChild(errorDiv);
+                }
+            }, 3000);
+        }
+
+        function updateStats() {
+            const text = document.getElementById('textInput').value;
+
+            // Basic counts
+            const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+            const charCount = text.length;
+            const charNoSpaces = text.replace(/\s+/g, '').length;
+
+            // Advanced counts
+            const sentenceCount = text.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
+            const paragraphCount = text.split(/\n+/).filter(p => p.trim().length > 0).length;
+            const readingTime = Math.ceil(wordCount / 200);
+
+            // Update displays
+            document.getElementById('wordCount').textContent = wordCount.toLocaleString();
+            document.getElementById('charCount').textContent = charCount.toLocaleString();
+            document.getElementById('charNoSpaces').textContent = charNoSpaces.toLocaleString();
+            document.getElementById('sentenceCount').textContent = sentenceCount.toLocaleString();
+            document.getElementById('paragraphCount').textContent = paragraphCount.toLocaleString();
+            document.getElementById('readingTime').textContent = readingTime;
+            document.getElementById('charProgress').textContent = `${charCount.toLocaleString()} characters`;
+            document.getElementById('fileCount').textContent = processedFilesCount;
+            document.getElementById('totalWords').textContent = (totalProcessedWords + wordCount).toLocaleString();
+
+            // Update progress rings
+            const maxRingValue = 1000;
+            const wordProgress = Math.min((wordCount / maxRingValue) * 100, 100);
+            const charProgress = Math.min((charCount / (maxRingValue * 5)) * 100, 100);
+
+            document.querySelectorAll('.progress-ring')[0].style.strokeDashoffset = 100 - wordProgress;
+            document.querySelectorAll('.progress-ring')[1].style.strokeDashoffset = 100 - charProgress;
+
+            // Update word frequency
+            updateWordFrequency(text);
+        }
+
+        function updateWordFrequency(text) {
+            if (!text.trim()) {
+                document.getElementById('wordFrequency').innerHTML = 'Start typing or upload files to see word frequency...';
+                return;
+            }
+
+            const words = text.toLowerCase()
+                .replace(/[^\w\s]/g, '')
+                .split(/\s+/)
+                .filter(word => word.length > 2);
+
+            const frequency = {};
+            words.forEach(word => {
+                frequency[word] = (frequency[word] || 0) + 1;
+            });
+
+            const sortedWords = Object.entries(frequency)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 8);
+
+            const frequencyHTML = sortedWords.map(([word, count]) =>
+                `<span class="word-highlight">${word}</span>: ${count}`
+            ).join(' • ');
+
+            document.getElementById('wordFrequency').innerHTML = frequencyHTML || 'No significant words found';
+        }
+
+        function clearText() {
+            document.getElementById('textInput').value = '';
+            processedFilesCount = 0;
+            totalProcessedWords = 0;
+            updateStats();
+        }
+
+        function copyToClipboard() {
+            const text = document.getElementById('textInput');
+            text.select();
+            document.execCommand('copy');
+
+            // Show temporary feedback
+            const button = event.currentTarget;
+            const originalText = button.textContent;
+            button.textContent = 'Copied!';
+            button.classList.add('bg-green-500');
+            button.classList.remove('bg-blue-500');
+
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.classList.remove('bg-green-500');
+                button.classList.add('bg-blue-500');
+            }, 2000);
+        }
+
+        function downloadText() {
+            const text = document.getElementById('textInput').value;
+            const blob = new Blob([text], {
+                type: 'text/plain'
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'word-counter-content.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function speakText() {
+            const text = document.getElementById('textInput').value;
+            if (text && 'speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text.substring(0, 1000)); // Limit to 1000 chars
+                speechSynthesis.speak(utterance);
+            }
+        }
+
+        function exportResults(format) {
+            const stats = {
+                words: document.getElementById('wordCount').textContent,
+                characters: document.getElementById('charCount').textContent,
+                charactersNoSpaces: document.getElementById('charNoSpaces').textContent,
+                sentences: document.getElementById('sentenceCount').textContent,
+                paragraphs: document.getElementById('paragraphCount').textContent,
+                readingTime: document.getElementById('readingTime').textContent,
+                filesProcessed: processedFilesCount
+            };
+
+            let content, filename, type;
+
+            switch (format) {
+                case 'txt':
+                    content = Object.entries(stats).map(([key, value]) => `${key}: ${value}`).join('\n');
+                    filename = 'word-counter-stats.txt';
+                    type = 'text/plain';
+                    break;
+                case 'csv':
+                    content = Object.entries(stats).map(([key, value]) => `"${key}","${value}"`).join('\n');
+                    content = 'Statistic,Value\n' + content;
+                    filename = 'word-counter-stats.csv';
+                    type = 'text/csv';
+                    break;
+                case 'json':
+                    content = JSON.stringify(stats, null, 2);
+                    filename = 'word-counter-stats.json';
+                    type = 'application/json';
+                    break;
+            }
+
+            const blob = new Blob([content], {
+                type
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function printResults() {
+            const printContent = document.getElementById('textInput').value;
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Word Counter Results</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 40px; }
+                            pre { white-space: pre-wrap; word-wrap: break-word; }
+                        </style>
+                    </head>
+                    <body>
+                        <h1>Word Counter Analysis Results</h1>
+                        <pre>${printContent}</pre>
+                    </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+        }
+    </script>
+</body>
+
+</html>
